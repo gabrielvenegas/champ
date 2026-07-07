@@ -21,14 +21,34 @@ const REQUIRED_TEAM_COUNT = 5;
 const DEFAULT_MATCH_COUNT = 35;
 const MIN_MATCH_COUNT = 1;
 const MAX_MATCH_COUNT = 200;
-
-const getMatchKey = (round: number, homePlayerId: string, awayPlayerId: string) =>
-  `${round}:${homePlayerId}:${awayPlayerId}`;
+const MATCH_START_HOUR = 18;
+const FIXTURES_PER_MATCH_DAY = 5;
 
 const getDisplayLogin = (email?: string | null) => {
   if (!email) return 'No Login';
   return email.includes('@champ-lovat.vercel.app') ? email.split('@')[0] : email;
 };
+
+const getThisWeekTuesday = () => {
+  const date = new Date();
+  date.setDate(date.getDate() + (2 - date.getDay()));
+  date.setHours(MATCH_START_HOUR, 0, 0, 0);
+  return date;
+};
+
+const addDays = (date: Date, days: number) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const formatScheduleDate = (date: Date) =>
+  date.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 
 export default function AdminPage() {
   const router = useRouter();
@@ -50,7 +70,6 @@ export default function AdminPage() {
   const [newChampName, setNewChampName] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
   const [matchCountInput, setMatchCountInput] = useState(String(DEFAULT_MATCH_COUNT));
-  const [matchDateInputs, setMatchDateInputs] = useState<Record<string, string>>({});
   const [champCreationLoading, setChampCreationLoading] = useState(false);
 
   // Feedback states
@@ -174,15 +193,17 @@ export default function AdminPage() {
     [hasValidMatchCount, selectedMatchCount, selectedPlayerIds]
   );
 
+  const firstTuesday = useMemo(() => getThisWeekTuesday(), []);
+
+  const getMatchDate = (matchIndex: number) => {
+    const matchDayIndex = Math.floor(matchIndex / FIXTURES_PER_MATCH_DAY);
+    const weekIndex = Math.floor(matchDayIndex / 2);
+    const dayOffset = matchDayIndex % 2 === 0 ? 0 : 4;
+    return addDays(firstTuesday, weekIndex * 7 + dayOffset);
+  };
+
   const getPlayerName = (playerId: string) =>
     allPlayers.find((player) => player.id === playerId)?.name || 'Unknown Player';
-
-  const handleMatchDateChange = (matchKey: string, value: string) => {
-    setMatchDateInputs((prev) => ({
-      ...prev,
-      [matchKey]: value,
-    }));
-  };
 
   const handleCreateChampionship = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,16 +218,6 @@ export default function AdminPage() {
 
     if (!hasValidMatchCount) {
       setErrorMsg(`Choose between ${MIN_MATCH_COUNT} and ${MAX_MATCH_COUNT} matches for the season.`);
-      return;
-    }
-
-    const missingDate = selectedMatches.some((match) => {
-      const key = getMatchKey(match.round, match.homePlayerId, match.awayPlayerId);
-      return !matchDateInputs[key] || Number.isNaN(new Date(matchDateInputs[key]).getTime());
-    });
-
-    if (missingDate) {
-      setErrorMsg('Define a date and time for every generated match before starting the season.');
       return;
     }
 
@@ -238,12 +249,12 @@ export default function AdminPage() {
       if (linkErr) throw linkErr;
 
       // 3. Batch insert generated matches with their scheduled date/time
-      const matchesPayload = selectedMatches.map((match) => ({
+      const matchesPayload = selectedMatches.map((match, index) => ({
         championship_id: champData.id,
         round: match.round,
         home_player_id: match.homePlayerId,
         away_player_id: match.awayPlayerId,
-        scheduled_at: new Date(matchDateInputs[getMatchKey(match.round, match.homePlayerId, match.awayPlayerId)]).toISOString(),
+        scheduled_at: getMatchDate(index).toISOString(),
         status: 'pending',
       }));
 
@@ -257,7 +268,6 @@ export default function AdminPage() {
       setNewChampName('');
       setSelectedPlayerIds([]);
       setMatchCountInput(String(DEFAULT_MATCH_COUNT));
-      setMatchDateInputs({});
       
       // Reload admin states
       await loadAdminData();
@@ -647,12 +657,15 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                {selectedPlayerIds.length === REQUIRED_TEAM_COUNT && (
+                {selectedPlayerIds.length === REQUIRED_TEAM_COUNT && hasValidMatchCount && (
                   <div className="form-group" style={{ marginTop: '1rem' }}>
                     <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <Calendar size={14} />
-                      Match Dates
+                      Generated Match Dates
                     </label>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Every player faces every other player each week: 5 games on Tuesday and 5 on Saturday, starting {formatScheduleDate(firstTuesday)} at {String(MATCH_START_HOUR).padStart(2, '0')}:00.
+                    </span>
                     <div style={{
                       display: 'flex',
                       flexDirection: 'column',
@@ -665,10 +678,13 @@ export default function AdminPage() {
                       background: 'rgba(0,0,0,0.2)'
                     }}>
                       {selectedMatches.map((match, index) => {
-                        const matchKey = getMatchKey(match.round, match.homePlayerId, match.awayPlayerId);
+                        const matchDate = getMatchDate(index);
+                        const matchDayIndex = Math.floor(index / FIXTURES_PER_MATCH_DAY);
+                        const weekNumber = Math.floor(matchDayIndex / 2) + 1;
+                        const dayLabel = matchDayIndex % 2 === 0 ? 'Tuesday' : 'Saturday';
                         return (
                           <div
-                            key={matchKey}
+                            key={`${match.round}:${match.homePlayerId}:${match.awayPlayerId}`}
                             style={{
                               display: 'grid',
                               gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
@@ -682,7 +698,7 @@ export default function AdminPage() {
                           >
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-                                Matchday {match.round} · Fixture {index + 1}
+                                Week {weekNumber} {dayLabel} · Matchday {match.round}
                               </div>
                               <div style={{
                                 marginTop: '0.2rem',
@@ -695,14 +711,9 @@ export default function AdminPage() {
                                 {getPlayerName(match.homePlayerId)} vs {getPlayerName(match.awayPlayerId)}
                               </div>
                             </div>
-                            <input
-                              type="datetime-local"
-                              required
-                              value={matchDateInputs[matchKey] || ''}
-                              onChange={(e) => handleMatchDateChange(matchKey, e.target.value)}
-                              className="form-input"
-                              style={{ width: '100%', padding: '0.55rem 0.65rem', fontSize: '0.85rem' }}
-                            />
+                            <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: '0.9rem' }}>
+                              {formatScheduleDate(matchDate)}
+                            </div>
                           </div>
                         );
                       })}

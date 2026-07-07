@@ -32,9 +32,6 @@ export default function MatchesPage() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Calendar dropdown states
-  const [openCalendarMenuId, setOpenCalendarMenuId] = useState<string | null>(null);
-
   const formatICSDate = (date: Date): string => {
     return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   };
@@ -59,22 +56,6 @@ export default function MatchesPage() {
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  const handleAddToGoogleCalendar = (match: MatchWithSchedule, homeName: string, awayName: string) => {
-    const matchDate = getMatchDate(match);
-    
-    const endDate = new Date(matchDate);
-    endDate.setHours(matchDate.getHours() + 1);
-
-    const champName = activeChampionship?.name || 'EA FC Championship';
-    const title = encodeURIComponent(`EA FC Match: ${homeName} vs ${awayName}`);
-    const details = encodeURIComponent(`Round-robin match in the championship "${champName}".\n\nHome: ${homeName}\nAway: ${awayName}\n\nRecord results on: ${window.location.origin}/matches`);
-    const dates = `${formatICSDate(matchDate)}/${formatICSDate(endDate)}`;
-
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}&details=${details}`;
-    window.open(url, '_blank');
-    setOpenCalendarMenuId(null);
   };
 
   const handleDownloadICSFile = (match: MatchWithSchedule, homeName: string, awayName: string) => {
@@ -113,7 +94,6 @@ export default function MatchesPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    setOpenCalendarMenuId(null);
   };
 
   const supabase = createClient();
@@ -429,60 +409,19 @@ export default function MatchesPage() {
                 {/* Match Card Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '0.5rem', position: 'relative' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>MATCHDAY {match.round}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>ROUND {match.round}</span>
                     <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary)' }}>{formatMatchDate(match)}</span>
                   </div>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {/* Add to Calendar button */}
-                    <div style={{ position: 'relative' }}>
-                      <button
-                        onClick={() => setOpenCalendarMenuId(openCalendarMenuId === match.id ? null : match.id)}
-                        className="btn btn-secondary"
-                        style={{ padding: '0.25rem 0.4rem', border: '1px solid var(--border-color)', borderRadius: '4px', display: 'flex', alignItems: 'center', background: 'transparent' }}
-                        title="Add Match to Calendar"
-                      >
-                        <CalendarPlus size={14} color="var(--primary)" />
-                      </button>
-
-                      {/* Calendar Dropdown Menu */}
-                      {openCalendarMenuId === match.id && (
-                        <div className="glass" style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: '100%',
-                          marginTop: '0.5rem',
-                          background: 'var(--bg-card)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          padding: '0.4rem',
-                          zIndex: 50,
-                          width: '180px',
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.25rem'
-                        }}>
-                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', padding: '0.25rem 0.4rem', borderBottom: '1px solid rgba(255,255,255,0.04)', marginBottom: '0.25rem', fontWeight: 700, letterSpacing: '0.05em' }}>
-                            ADD EVENT TO:
-                          </div>
-                          <button
-                            onClick={() => handleAddToGoogleCalendar(match, getPlayerName(match.home_player_id), getPlayerName(match.away_player_id))}
-                            className="btn btn-secondary"
-                            style={{ width: '100%', padding: '0.35rem 0.5rem', fontSize: '0.75rem', justifyContent: 'flex-start', border: 'none', borderRadius: '4px', textAlign: 'left', background: 'transparent' }}
-                          >
-                            Google Calendar
-                          </button>
-                          <button
-                            onClick={() => handleDownloadICSFile(match, getPlayerName(match.home_player_id), getPlayerName(match.away_player_id))}
-                            className="btn btn-secondary"
-                            style={{ width: '100%', padding: '0.35rem 0.5rem', fontSize: '0.75rem', justifyContent: 'flex-start', border: 'none', borderRadius: '4px', textAlign: 'left', background: 'transparent' }}
-                          >
-                            Apple / Android / Outlook (.ics)
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => handleDownloadICSFile(match, getPlayerName(match.home_player_id), getPlayerName(match.away_player_id))}
+                      className="btn btn-secondary"
+                      style={{ padding: '0.25rem 0.4rem', border: '1px solid var(--border-color)', borderRadius: '4px', display: 'flex', alignItems: 'center', background: 'transparent' }}
+                      title="Add to Calendar"
+                    >
+                      <CalendarPlus size={14} color="var(--primary)" />
+                    </button>
 
                     <span className={`badge ${match.status === 'played' ? 'badge-success' : 'badge-pending'}`}>
                       {match.status}

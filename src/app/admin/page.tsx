@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { generateContinuousRoundRobin } from '@/lib/utils/scheduler';
+import { generateContinuousRoundRobin, generateRoundRobin } from '@/lib/utils/scheduler';
 import { 
   Trophy, 
   UserPlus, 
@@ -193,6 +193,11 @@ export default function AdminPage() {
     [hasValidMatchCount, selectedMatchCount, selectedPlayerIds]
   );
 
+  const fixturesPerRound = useMemo(
+    () => generateRoundRobin(selectedPlayerIds).length,
+    [selectedPlayerIds]
+  );
+
   const firstTuesday = useMemo(() => getThisWeekTuesday(), []);
 
   const getMatchDate = (matchIndex: number) => {
@@ -201,6 +206,9 @@ export default function AdminPage() {
     const dayOffset = matchDayIndex % 2 === 0 ? 0 : 4;
     return addDays(firstTuesday, weekIndex * 7 + dayOffset);
   };
+
+  const getSeasonRound = (matchIndex: number) =>
+    fixturesPerRound > 0 ? Math.floor(matchIndex / fixturesPerRound) + 1 : 1;
 
   const getPlayerName = (playerId: string) =>
     allPlayers.find((player) => player.id === playerId)?.name || 'Unknown Player';
@@ -251,7 +259,7 @@ export default function AdminPage() {
       // 3. Batch insert generated matches with their scheduled date/time
       const matchesPayload = selectedMatches.map((match, index) => ({
         championship_id: champData.id,
-        round: match.round,
+        round: getSeasonRound(index),
         home_player_id: match.homePlayerId,
         away_player_id: match.awayPlayerId,
         scheduled_at: getMatchDate(index).toISOString(),
@@ -682,6 +690,7 @@ export default function AdminPage() {
                         const matchDayIndex = Math.floor(index / FIXTURES_PER_MATCH_DAY);
                         const weekNumber = Math.floor(matchDayIndex / 2) + 1;
                         const dayLabel = matchDayIndex % 2 === 0 ? 'Tuesday' : 'Saturday';
+                        const seasonRound = getSeasonRound(index);
                         return (
                           <div
                             key={`${match.round}:${match.homePlayerId}:${match.awayPlayerId}`}
@@ -698,7 +707,7 @@ export default function AdminPage() {
                           >
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
-                                Week {weekNumber} {dayLabel} · Matchday {match.round}
+                                Round {seasonRound} · Week {weekNumber} {dayLabel}
                               </div>
                               <div style={{
                                 marginTop: '0.2rem',

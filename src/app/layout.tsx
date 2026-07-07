@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import PWAProvider from '@/components/PWAProvider';
 import Navbar from '@/components/Navbar';
+import BottomBar from '@/components/BottomBar';
 
 export const metadata: Metadata = {
   title: 'EA FC Friends Championship',
@@ -27,7 +28,8 @@ export default function RootLayout({
       <body>
         <PWAProvider>
           <Navbar />
-          <main style={{ flex: 1 }}>{children}</main>
+          <main className="app-main">{children}</main>
+          <BottomBar />
         </PWAProvider>
       </body>
     </html>

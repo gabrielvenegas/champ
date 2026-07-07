@@ -2,20 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { usePWA } from '@/components/PWAProvider';
-import { 
-  Trophy, 
-  LayoutDashboard, 
-  ListOrdered, 
-  Swords, 
-  Settings, 
-  LogOut, 
-  Download, 
+import {
+  Settings,
+  LogOut,
+  Download,
   WifiOff,
-  X
+  X,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -28,29 +25,24 @@ export default function Navbar() {
   const supabase = createClient();
 
   useEffect(() => {
-    // Check current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setIsAdmin(session?.user?.email === 'ged.venegas@gmail.com');
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setIsAdmin(session?.user?.email === 'ged.venegas@gmail.com');
-      
-      // If signed out and not already on the login page, redirect to home
+
       if (!session && pathname !== '/') {
         router.push('/');
         router.refresh();
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [router, supabase.auth, pathname]);
 
   const handleSignOut = async () => {
@@ -68,121 +60,81 @@ export default function Navbar() {
     setShowInstallHelp(true);
   };
 
-  // If no user is logged in, hide navigation links
   if (!user) return null;
 
   return (
-    <header className="glass" style={{ borderBottom: '1px solid var(--border-color)', top: 0, zIndex: 100, position: 'sticky' }}>
-      <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 1.5rem' }}>
-        {/* Brand logo & title */}
-        <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: 800, fontSize: '1.2rem', color: '#fff' }}>
-          <Trophy size={24} color="var(--primary)" style={{ filter: 'drop-shadow(var(--glow-shadow))' }} />
-          <span>FC <span style={{ color: 'var(--primary)' }}>CHAMP</span></span>
-        </Link>
-
-        {/* Desktop Navigation Links */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Link 
-            href="/dashboard" 
-            className={`btn ${pathname === '/dashboard' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-          >
-            <LayoutDashboard size={16} />
-            <span className="nav-text">Dashboard</span>
-          </Link>
-          
-          <Link 
-            href="/leaderboard" 
-            className={`btn ${pathname === '/leaderboard' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-          >
-            <ListOrdered size={16} />
-            <span className="nav-text">Leaderboard</span>
-          </Link>
-          
-          <Link 
-            href="/matches" 
-            className={`btn ${pathname === '/matches' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-          >
-            <Swords size={16} />
-            <span className="nav-text">Matches</span>
-          </Link>
-
-          {isAdmin && (
-            <Link 
-              href="/admin" 
-              className={`btn ${pathname === '/admin' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-            >
-              <Settings size={16} />
-              <span className="nav-text">Admin</span>
-            </Link>
-          )}
-        </nav>
-
-        {/* User Info, Install PWA and Logout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+    <header className="app-header glass">
+      <div className="app-header-inner">
+        <div className="app-header-side app-header-side-left">
           {isOffline && (
-            <div className="badge badge-pending" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <div className="badge badge-pending header-badge">
               <WifiOff size={12} />
-              <span>Offline</span>
+              <span className="header-badge-text">Offline</span>
             </div>
           )}
 
           {!isStandalone && (isInstallable || isIosInstallable) && (
-            <button 
-              onClick={handleInstallClick} 
-              className="btn btn-accent"
-              style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
+            <button
+              onClick={handleInstallClick}
+              className="btn btn-secondary header-icon-btn"
               title="Add to Home Screen"
+              aria-label="Add to Home Screen"
             >
-              <Download size={16} />
-              <span className="nav-text">Add to Home Screen</span>
+              <Download size={18} />
             </button>
           )}
+        </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span className="nav-text" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              {user.email}
-            </span>
-            <button 
-              onClick={handleSignOut} 
-              className="btn btn-secondary"
-              style={{ padding: '0.5rem', borderRadius: '50%' }}
-              title="Sign Out"
+        <Link href="/dashboard" className="app-header-logo" aria-label="FC Champ Home">
+          <Image
+            src="/icons/logo.png"
+            alt="FC Champ"
+            width={330}
+            height={104}
+            priority
+            className="app-header-logo-img"
+          />
+        </Link>
+
+        <div className="app-header-side app-header-side-right">
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`btn header-icon-btn ${pathname === '/admin' ? 'header-icon-btn-active' : 'btn-secondary'}`}
+              title="Admin"
+              aria-label="Admin"
             >
-              <LogOut size={16} />
-            </button>
-          </div>
+              <Settings size={18} />
+            </Link>
+          )}
+
+          <button
+            onClick={handleSignOut}
+            className="btn btn-secondary header-icon-btn"
+            title="Sign Out"
+            aria-label="Sign Out"
+          >
+            <LogOut size={18} />
+          </button>
         </div>
       </div>
 
       {showInstallHelp && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          zIndex: 200,
-          background: 'rgba(0,0,0,0.6)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '1rem'
-        }}>
-          <div className="card glass" style={{ width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-              <h3 style={{ fontSize: '1.1rem' }}>Add to Home Screen</h3>
+        <div className="install-help-overlay">
+          <div className="card glass install-help-modal">
+            <div className="install-help-header">
+              <h3>Add to Home Screen</h3>
               <button
                 type="button"
-                className="btn btn-secondary"
-                style={{ padding: '0.4rem', borderRadius: '50%' }}
+                className="btn btn-secondary header-icon-btn"
                 onClick={() => setShowInstallHelp(false)}
                 title="Close"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
             </div>
-            <p style={{ fontSize: '0.95rem' }}>
+            <p>
               On iPhone, tap Share in Safari, then choose Add to Home Screen.
             </p>
             <button
@@ -195,17 +147,6 @@ export default function Navbar() {
           </div>
         </div>
       )}
-      
-      <style jsx global>{`
-        @media (max-width: 640px) {
-          .nav-text {
-            display: none;
-          }
-          header .container {
-            padding: 0.5rem 1rem !important;
-          }
-        }
-      `}</style>
     </header>
   );
 }

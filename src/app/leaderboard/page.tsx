@@ -81,7 +81,7 @@ export default function LeaderboardPage() {
       <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <Activity className="animate-fade-in" size={48} color="var(--primary)" style={{ animation: 'pulse 1.5s infinite' }} />
-          <span style={{ color: 'var(--text-secondary)' }}>Calculating Standings...</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Calculando classificação...</span>
         </div>
         <style jsx>{`
           @keyframes pulse {
@@ -98,9 +98,9 @@ export default function LeaderboardPage() {
       <div className="container animate-fade-in" style={{ maxWidth: '600px', padding: '4rem 1.5rem', textAlign: 'center' }}>
         <div className="card glass" style={{ padding: '3rem 2rem' }}>
           <Trophy size={64} color="var(--text-muted)" style={{ marginBottom: '1.5rem' }} />
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>No Active Championship</h2>
+          <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>Nenhum campeonato ativo</h2>
           <p style={{ marginBottom: '2rem', fontSize: '1rem' }}>
-            There is currently no active EA FC tournament running. Standings will be available once a championship is generated.
+            Não há nenhum campeonato EA FC ativo no momento. A classificação estará disponível assim que um campeonato for criado.
           </p>
         </div>
       </div>
@@ -115,14 +115,14 @@ export default function LeaderboardPage() {
         <div>
           <h1 style={{ fontSize: '2.2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <Award color="var(--primary)" size={32} />
-            Leaderboard
+            Classificação
           </h1>
           <p style={{ marginTop: '0.25rem' }}>
-            Standings for <span style={{ color: '#fff', fontWeight: 600 }}>{activeChampionship.name}</span> • {playedMatches}/{totalMatches} matches completed
+            Classificação de <span style={{ color: '#fff', fontWeight: 600 }}>{activeChampionship.name}</span> • {playedMatches}/{totalMatches} partidas realizadas
           </p>
         </div>
         <div className="badge badge-success">
-          Round Robin League
+          Liga todos contra todos
         </div>
       </div>
 
@@ -134,15 +134,15 @@ export default function LeaderboardPage() {
               <thead>
                 <tr>
                   <th style={{ width: '60px', textAlign: 'center' }}>Pos</th>
-                  <th>Player Name</th>
-                  <th style={{ textAlign: 'center' }}>GP</th>
-                  <th style={{ textAlign: 'center' }}>W</th>
+                  <th>Jogador</th>
+                  <th style={{ textAlign: 'center' }}>J</th>
+                  <th style={{ textAlign: 'center' }}>V</th>
+                  <th style={{ textAlign: 'center' }}>E</th>
                   <th style={{ textAlign: 'center' }}>D</th>
-                  <th style={{ textAlign: 'center' }}>L</th>
-                  <th style={{ textAlign: 'center' }}>GF</th>
-                  <th style={{ textAlign: 'center' }}>GA</th>
-                  <th style={{ textAlign: 'center' }}>GD</th>
-                  <th style={{ textAlign: 'center', background: 'rgba(0, 255, 102, 0.05)', color: 'var(--primary)', fontWeight: 800 }}>PTS</th>
+                  <th style={{ textAlign: 'center' }}>GP</th>
+                  <th style={{ textAlign: 'center' }}>GC</th>
+                  <th style={{ textAlign: 'center' }}>SG</th>
+                  <th style={{ textAlign: 'center', background: 'rgba(0, 255, 102, 0.05)', color: 'var(--primary)', fontWeight: 800 }}>Pts</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,7 +174,7 @@ export default function LeaderboardPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <span>{standing.playerName}</span>
                           {isFirst && (
-                            <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>Leader</span>
+                            <span className="badge badge-success" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>Líder</span>
                           )}
                         </div>
                       </td>
@@ -215,14 +215,14 @@ export default function LeaderboardPage() {
         </div>
       ) : (
         <div className="card glass" style={{ padding: '3rem', textAlign: 'center' }}>
-          <span style={{ color: 'var(--text-secondary)' }}>Standings table is empty. Matches need to be recorded to calculate league ranks.</span>
+          <span style={{ color: 'var(--text-secondary)' }}>A tabela de classificação está vazia. É necessário registrar partidas para calcular as posições.</span>
         </div>
       )}
       
       {/* Legend / Tiebreaker disclaimer */}
       <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-        <div>GP = Games Played • W = Wins • D = Draws • L = Losses • GF = Goals For • GA = Goals Against • GD = Goal Difference • PTS = Points</div>
-        <div style={{ fontStyle: 'italic' }}>Tie-breakers: Points ➔ Goal Difference ➔ Goals For</div>
+        <div>J = Jogos • V = Vitórias • E = Empates • D = Derrotas • GP = Gols pró • GC = Gols contra • SG = Saldo de gols • Pts = Pontos</div>
+        <div style={{ fontStyle: 'italic' }}>Critérios de desempate: Pontos ➔ Saldo de gols ➔ Gols pró</div>
       </div>
 
     </div>

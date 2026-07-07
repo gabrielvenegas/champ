@@ -88,11 +88,24 @@ export default function Dashboard() {
           setStandings(computedStandings);
         }
 
-        // Get 3 upcoming pending matches
-        const pending = allMatches
+        // Get the next scheduled match day
+        const pendingSorted = allMatches
           .filter((m) => m.status === 'pending')
-          .slice(0, 3);
-        setPendingMatches(pending);
+          .sort((a, b) => {
+            const dateA = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+            const dateB = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+            return dateA - dateB;
+          });
+
+        const nextMatchDate = pendingSorted[0]?.scheduled_at
+          ? new Date(pendingSorted[0].scheduled_at).toDateString()
+          : null;
+
+        const nextGames = nextMatchDate
+          ? pendingSorted.filter((m) => new Date(m.scheduled_at).toDateString() === nextMatchDate)
+          : pendingSorted.slice(0, 5);
+
+        setPendingMatches(nextGames.slice(0, 5));
 
         // Get 3 recent played matches
         const recent = allMatches
@@ -117,6 +130,18 @@ export default function Dashboard() {
 
   const getPlayerName = (id: string) => {
     return players.find((p) => p.id === id)?.name || 'Unknown Player';
+  };
+
+  const formatMatchDate = (dateValue?: string | null) => {
+    if (!dateValue) return 'Date TBD';
+
+    return new Date(dateValue).toLocaleString([], {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const playedCount = matches.filter((m) => m.status === 'played').length;
@@ -277,12 +302,12 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Action / Next Matches Snippet */}
+        {/* Action / Next Games Snippet */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
               <Calendar size={18} color="var(--secondary)" />
-              Next Fixtures
+              Next Games
             </h3>
             <Link href="/matches" style={{ fontSize: '0.85rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
               All Matches <ChevronRight size={14} />
@@ -301,11 +326,14 @@ export default function Dashboard() {
                   borderRadius: 'var(--border-radius-sm)',
                   border: '1px solid var(--border-color)'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     <span>ROUND {match.round}</span>
                     <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                       <Play size={10} /> Pending
                     </span>
+                  </div>
+                  <div style={{ color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 700 }}>
+                    {formatMatchDate(match.scheduled_at)}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600 }}>
                     <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

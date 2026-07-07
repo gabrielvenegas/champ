@@ -25,7 +25,6 @@ export default function Dashboard() {
   const [standings, setStandings] = useState<PlayerStanding[]>([]);
   const [pendingMatches, setPendingMatches] = useState<any[]>([]);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
-  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -39,7 +38,6 @@ export default function Dashboard() {
       // Get current user and admin status
       const { data: { user } } = await supabase.auth.getUser();
       setIsAdmin(user?.email === 'ged.venegas@gmail.com');
-      const currentUserId = user?.id;
 
       // Fetch active championship
       const { data: champData, error: champError } = await supabase
@@ -68,16 +66,6 @@ export default function Dashboard() {
           .map((p: any) => p.players)
           .filter((p) => p !== null);
         setPlayers(flattenedPlayers);
-
-        if (currentUserId) {
-          const { data: currentPlayerData } = await supabase
-            .from('players')
-            .select('id')
-            .eq('user_id', currentUserId)
-            .maybeSingle();
-
-          setCurrentPlayerId(currentPlayerData?.id || null);
-        }
 
         // Fetch matches in this championship
         const { data: matchesData, error: matchesError } = await supabase
@@ -141,13 +129,13 @@ export default function Dashboard() {
   };
 
   const getPlayerName = (id: string) => {
-    return players.find((p) => p.id === id)?.name || 'Unknown Player';
+    return players.find((p) => p.id === id)?.name || 'Jogador desconhecido';
   };
 
   const formatMatchDate = (dateValue?: string | null) => {
-    if (!dateValue) return 'Date TBD';
+    if (!dateValue) return 'Data a definir';
 
-    return new Date(dateValue).toLocaleString([], {
+    return new Date(dateValue).toLocaleString('pt-BR', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -155,9 +143,6 @@ export default function Dashboard() {
       minute: '2-digit',
     });
   };
-
-  const isUserMatch = (match: any) =>
-    Boolean(currentPlayerId && (match.home_player_id === currentPlayerId || match.away_player_id === currentPlayerId));
 
   const playedCount = matches.filter((m) => m.status === 'played').length;
   const totalCount = matches.length;
@@ -168,7 +153,7 @@ export default function Dashboard() {
       <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <Activity className="animate-fade-in" size={48} color="var(--primary)" style={{ animation: 'pulse 1.5s infinite' }} />
-          <span style={{ color: 'var(--text-secondary)' }}>Loading Dashboard...</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Carregando painel...</span>
         </div>
         <style jsx>{`
           @keyframes pulse {
@@ -185,17 +170,17 @@ export default function Dashboard() {
       <div className="container animate-fade-in" style={{ maxWidth: '600px', padding: '4rem 1.5rem', textAlign: 'center' }}>
         <div className="card glass" style={{ padding: '3rem 2rem' }}>
           <Trophy size={64} color="var(--text-muted)" style={{ marginBottom: '1.5rem' }} />
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>No Active Championship</h2>
+          <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>Nenhum campeonato ativo</h2>
           <p style={{ marginBottom: '2rem', fontSize: '1rem' }}>
-            There is currently no active EA FC tournament running.
+            Não há nenhum campeonato EA FC ativo no momento.
           </p>
           {isAdmin ? (
             <Link href="/admin" className="btn btn-primary" style={{ padding: '0.8rem 2rem' }}>
-              Create Championship
+              Criar campeonato
             </Link>
           ) : (
             <div className="badge badge-pending" style={{ textTransform: 'none', padding: '0.75rem 1.5rem' }}>
-              Waiting for ged.venegas@gmail.com to start a new season...
+              Aguardando ged.venegas@gmail.com iniciar uma nova temporada...
             </div>
           )}
         </div>
@@ -217,19 +202,19 @@ export default function Dashboard() {
         background: 'linear-gradient(135deg, rgba(18,23,33,0.8) 0%, rgba(10,14,20,0.9) 100%)'
       }}>
         <div>
-          <span className="badge badge-success" style={{ marginBottom: '0.5rem' }}>Active Season</span>
+          <span className="badge badge-success" style={{ marginBottom: '0.5rem' }}>Temporada ativa</span>
           <h1 style={{ fontSize: '2.2rem', textShadow: '0 0 10px rgba(255,255,255,0.1)' }}>{activeChampionship.name}</h1>
           <p style={{ marginTop: '0.25rem', fontSize: '0.95rem' }}>
-            Round-Robin Tournament • {players.length} Players
+            Torneio todos contra todos • {players.length} jogadores
           </p>
         </div>
         
         {/* Progress Circle & Stats */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{ textAlign: 'right' }}>
-            <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 600 }}>Completion</span>
+            <span style={{ fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 600 }}>Conclusão</span>
             <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)' }}>
-              {playedCount} / {totalCount} <span style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-secondary)' }}>played</span>
+              {playedCount} / {totalCount} <span style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-secondary)' }}>realizadas</span>
             </span>
           </div>
           
@@ -269,10 +254,10 @@ export default function Dashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
               <Award size={18} color="var(--primary)" />
-              Top Standings
+              Top classificação
             </h3>
             <Link href="/leaderboard" style={{ fontSize: '0.85rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              View All <ChevronRight size={14} />
+              Ver tudo <ChevronRight size={14} />
             </Link>
           </div>
 
@@ -303,7 +288,7 @@ export default function Dashboard() {
                     </div>
                     
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', fontSize: '0.9rem' }}>
-                      <span style={{ color: 'var(--text-secondary)' }}>W: {standing.wins}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>V: {standing.wins}</span>
                       <span style={{ fontWeight: 800, color: 'var(--primary)' }}>{standing.points} PTS</span>
                     </div>
                   </div>
@@ -312,7 +297,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '150px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No standings data available yet.</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nenhuma classificação disponível ainda.</span>
             </div>
           )}
         </div>
@@ -322,55 +307,50 @@ export default function Dashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
               <Calendar size={18} color="var(--secondary)" />
-              Next Games
+              Próximos jogos
             </h3>
             <Link href="/matches" style={{ fontSize: '0.85rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              All Matches <ChevronRight size={14} />
+              Todas as partidas <ChevronRight size={14} />
             </Link>
           </div>
 
           {pendingMatches.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
-              {pendingMatches.map((match) => {
-                const isMine = isUserMatch(match);
-
-                return (
+              {pendingMatches.map((match) => (
                   <div key={match.id} style={{ 
                     display: 'flex', 
                     flexDirection: 'column', 
                     gap: '0.5rem', 
                     padding: '0.85rem 1rem', 
-                    background: isMine ? 'rgba(0,255,102,0.08)' : 'rgba(0,0,0,0.2)', 
+                    background: 'rgba(0,0,0,0.2)', 
                     borderRadius: 'var(--border-radius-sm)',
-                    border: isMine ? '1px solid rgba(0,255,102,0.35)' : '1px solid var(--border-color)',
-                    boxShadow: isMine ? '0 0 18px rgba(0,255,102,0.08)' : 'none'
+                    border: '1px solid var(--border-color)',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>{isMine ? 'YOUR GAME' : `ROUND ${match.round}`}</span>
+                      <span>RODADA {match.round}</span>
                       <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Play size={10} /> Pending
+                        <Play size={10} /> Pendente
                       </span>
                     </div>
                     <div style={{ color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 700 }}>
                       {formatMatchDate(match.scheduled_at)}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600 }}>
-                      <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: match.home_player_id === currentPlayerId ? 'var(--primary)' : 'var(--text-primary)' }}>
+                      <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {getPlayerName(match.home_player_id)}
                       </span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>VS</span>
-                      <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', color: match.away_player_id === currentPlayerId ? 'var(--primary)' : 'var(--text-primary)' }}>
+                      <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {getPlayerName(match.away_player_id)}
                       </span>
                     </div>
                   </div>
-                );
-              })}
+                ))}
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '150px' }}>
               <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', textAlign: 'center' }}>
-                All matches played! 🎉
+                Todas as partidas foram realizadas! 🎉
               </span>
             </div>
           )}
@@ -381,10 +361,10 @@ export default function Dashboard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
               <CheckCircle size={18} color="var(--primary)" />
-              Recent Results
+              Resultados recentes
             </h3>
             <Link href="/matches" style={{ fontSize: '0.85rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              All Results <ChevronRight size={14} />
+              Todos os resultados <ChevronRight size={14} />
             </Link>
           </div>
 
@@ -401,8 +381,8 @@ export default function Dashboard() {
                   border: '1px solid rgba(0, 255, 102, 0.08)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span>ROUND {match.round}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>Played</span>
+                    <span>RODADA {match.round}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Realizada</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600 }}>
                     <span style={{ width: '35%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -427,7 +407,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '150px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>No matches played yet.</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Nenhuma partida realizada ainda.</span>
             </div>
           )}
         </div>

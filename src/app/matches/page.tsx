@@ -45,7 +45,7 @@ export default function MatchesPage() {
   };
 
   const formatMatchDate = (match: MatchWithSchedule) => {
-    return getMatchDate(match).toLocaleString([], {
+    return getMatchDate(match).toLocaleString('pt-BR', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -60,9 +60,9 @@ export default function MatchesPage() {
     const endDate = new Date(matchDate);
     endDate.setHours(matchDate.getHours() + 1);
 
-    const champName = activeChampionship?.name || 'EA FC Championship';
-    const title = `EA FC Match: ${homeName} vs ${awayName}`;
-    const description = `Round-robin match in the championship "${champName}".\\n\\nHome: ${homeName}\\nAway: ${awayName}\\n\\nRecord results on: ${window.location.origin}/matches`;
+    const champName = activeChampionship?.name || 'Campeonato EA FC';
+    const title = `Partida EA FC: ${homeName} x ${awayName}`;
+    const description = `Partida todos contra todos no campeonato "${champName}".\\n\\nMandante: ${homeName}\\nVisitante: ${awayName}\\n\\nRegistre os resultados em: ${window.location.origin}/matches`;
     const formatDateTime = (d: Date) => {
       return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
@@ -179,8 +179,11 @@ export default function MatchesPage() {
   };
 
   const getPlayerName = (id: string) => {
-    return players.find((p) => p.id === id)?.name || 'Unknown Player';
+    return players.find((p) => p.id === id)?.name || 'Jogador desconhecido';
   };
+
+  const getMatchStatusLabel = (status: string) =>
+    status === 'played' ? 'Realizada' : 'Pendente';
 
   const isEditable = (match: any) => {
     if (isAdmin) return true;
@@ -207,7 +210,7 @@ export default function MatchesPage() {
     const away = parseInt(awayScoreInput, 10);
 
     if (isNaN(home) || isNaN(away)) {
-      setErrorMsg('Please enter valid scores for both players.');
+      setErrorMsg('Informe placares válidos para ambos os jogadores.');
       return;
     }
 
@@ -245,14 +248,14 @@ export default function MatchesPage() {
       setEditingMatchId(null);
     } catch (err: any) {
       console.error('Error saving score:', err);
-      setErrorMsg(err.message || 'Error updating score. Check permissions.');
+      setErrorMsg(err.message || 'Erro ao atualizar placar. Verifique suas permissões.');
     } finally {
       setSavingId(null);
     }
   };
 
   const resetScore = async (matchId: string) => {
-    const confirm = window.confirm('Reset this match score and mark it as pending?');
+    const confirm = window.confirm('Redefinir o placar desta partida e marcá-la como pendente?');
     if (!confirm) return;
 
     setSavingId(matchId);
@@ -290,7 +293,7 @@ export default function MatchesPage() {
       setAwayScoreInput('');
     } catch (err: any) {
       console.error('Error resetting score:', err);
-      setErrorMsg(err.message || 'Error resetting score. Check permissions.');
+      setErrorMsg(err.message || 'Erro ao redefinir placar. Verifique suas permissões.');
     } finally {
       setSavingId(null);
     }
@@ -311,7 +314,7 @@ export default function MatchesPage() {
       <div className="container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <Activity className="animate-fade-in" size={48} color="var(--primary)" style={{ animation: 'pulse 1.5s infinite' }} />
-          <span style={{ color: 'var(--text-secondary)' }}>Loading Matches...</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Carregando partidas...</span>
         </div>
         <style jsx>{`
           @keyframes pulse {
@@ -328,9 +331,9 @@ export default function MatchesPage() {
       <div className="container animate-fade-in" style={{ maxWidth: '600px', padding: '4rem 1.5rem', textAlign: 'center' }}>
         <div className="card glass" style={{ padding: '3rem 2rem' }}>
           <Trophy size={64} color="var(--text-muted)" style={{ marginBottom: '1.5rem' }} />
-          <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>No Active Championship</h2>
+          <h2 style={{ fontSize: '1.8rem', marginBottom: '1rem' }}>Nenhum campeonato ativo</h2>
           <p style={{ marginBottom: '2rem', fontSize: '1rem' }}>
-            There is currently no active EA FC tournament running. Fixtures will be generated when a championship is started.
+            Não há nenhum campeonato EA FC ativo no momento. Os jogos serão gerados quando um campeonato for iniciado.
           </p>
         </div>
       </div>
@@ -345,10 +348,10 @@ export default function MatchesPage() {
         <div>
           <h1 className="match-page-title">
             <Calendar color="var(--primary)" size={30} />
-            Championship Fixtures
+            Jogos
           </h1>
           <p className="match-page-subtitle">
-            Manage and view matches for <span style={{ color: '#fff', fontWeight: 600 }}>{activeChampionship.name}</span>
+            Gerencie e visualize as partidas de <span style={{ color: '#fff', fontWeight: 600 }}>{activeChampionship.name}</span>
           </p>
         </div>
 
@@ -358,19 +361,19 @@ export default function MatchesPage() {
             onClick={() => setFilterStatus('all')}
             className={`btn match-filter-tab ${filterStatus === 'all' ? 'btn-primary' : 'btn-secondary'}`}
           >
-            All
+            Todas
           </button>
           <button 
             onClick={() => setFilterStatus('pending')}
             className={`btn match-filter-tab ${filterStatus === 'pending' ? 'btn-primary' : 'btn-secondary'}`}
           >
-            Pending
+            Pendentes
           </button>
           <button 
             onClick={() => setFilterStatus('played')}
             className={`btn match-filter-tab ${filterStatus === 'played' ? 'btn-primary' : 'btn-secondary'}`}
           >
-            Played
+            Realizadas
           </button>
         </div>
       </div>
@@ -388,7 +391,7 @@ export default function MatchesPage() {
                 boxShadow: activeRound === round ? 'var(--purple-shadow)' : 'none'
               }}
             >
-              Round {round}
+              Rodada {round}
             </button>
           ))}
         </div>
@@ -433,7 +436,7 @@ export default function MatchesPage() {
                 {/* Match Card Header */}
                 <div className="match-card-header">
                   <div className="match-meta">
-                    <span className="match-round-label">ROUND {match.round}</span>
+                    <span className="match-round-label">RODADA {match.round}</span>
                     <span className="match-date-label">{formatMatchDate(match)}</span>
                   </div>
                   
@@ -442,13 +445,13 @@ export default function MatchesPage() {
                       onClick={() => handleDownloadICSFile(match, getPlayerName(match.home_player_id), getPlayerName(match.away_player_id))}
                       className="btn btn-secondary"
                       style={{ padding: '0.25rem 0.4rem', border: '1px solid var(--border-color)', borderRadius: '4px', display: 'flex', alignItems: 'center', background: 'transparent' }}
-                      title="Add to Calendar"
+                      title="Adicionar ao calendário"
                     >
                       <CalendarPlus size={14} color="var(--primary)" />
                     </button>
 
                     <span className={`badge ${match.status === 'played' ? 'badge-success' : 'badge-pending'}`}>
-                      {match.status}
+                      {getMatchStatusLabel(match.status)}
                     </span>
                   </div>
                 </div>
@@ -461,7 +464,7 @@ export default function MatchesPage() {
                     <span className="match-player-name" style={{ color: isHomeWinner ? 'var(--primary)' : 'var(--text-primary)' }}>
                       {getPlayerName(match.home_player_id)}
                     </span>
-                    <span className="match-player-role">Home</span>
+                    <span className="match-player-role">Mandante</span>
                   </div>
 
                   {/* Score display or Editor */}
@@ -504,7 +507,7 @@ export default function MatchesPage() {
                     <span className="match-player-name" style={{ color: isAwayWinner ? 'var(--primary)' : 'var(--text-primary)' }}>
                       {getPlayerName(match.away_player_id)}
                     </span>
-                    <span className="match-player-role">Away</span>
+                    <span className="match-player-role">Visitante</span>
                   </div>
 
                 </div>
@@ -520,7 +523,7 @@ export default function MatchesPage() {
                           style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                           disabled={savingId === match.id}
                         >
-                          <X size={14} /> Cancel
+                          <X size={14} /> Cancelar
                         </button>
                         {match.status === 'played' && (
                           <button
@@ -529,7 +532,7 @@ export default function MatchesPage() {
                             style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderColor: 'rgba(239,68,68,0.35)', color: '#f87171' }}
                             disabled={savingId === match.id}
                           >
-                            <RotateCcw size={14} /> Reset
+                            <RotateCcw size={14} /> Redefinir
                           </button>
                         )}
                         <button 
@@ -538,7 +541,7 @@ export default function MatchesPage() {
                           style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                           disabled={savingId === match.id}
                         >
-                          <Check size={14} /> {savingId === match.id ? 'Saving...' : 'Save'}
+                          <Check size={14} /> {savingId === match.id ? 'Salvando...' : 'Salvar'}
                         </button>
                       </>
                     ) : (
@@ -547,7 +550,7 @@ export default function MatchesPage() {
                         className="btn btn-secondary"
                         style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
                       >
-                        <Edit2 size={14} /> {match.status === 'played' ? 'Update Score' : 'Record Score'}
+                        <Edit2 size={14} /> {match.status === 'played' ? 'Atualizar placar' : 'Registrar placar'}
                       </button>
                     )}
                   </div>
@@ -558,7 +561,7 @@ export default function MatchesPage() {
         </div>
       ) : (
         <div className="card glass animate-fade-in" style={{ padding: '3rem', textAlign: 'center' }}>
-          <span style={{ color: 'var(--text-secondary)' }}>No matches found in Round {activeRound} matching filter status.</span>
+          <span style={{ color: 'var(--text-secondary)' }}>Nenhuma partida encontrada na Rodada {activeRound} com o filtro selecionado.</span>
         </div>
       )}
 

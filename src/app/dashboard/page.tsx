@@ -25,6 +25,7 @@ export default function Dashboard() {
   const [standings, setStandings] = useState<PlayerStanding[]>([]);
   const [pendingMatches, setPendingMatches] = useState<any[]>([]);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -38,6 +39,7 @@ export default function Dashboard() {
       // Get current user and admin status
       const { data: { user } } = await supabase.auth.getUser();
       setIsAdmin(user?.email === 'ged.venegas@gmail.com');
+      const currentUserId = user?.id;
 
       // Fetch active championship
       const { data: champData, error: champError } = await supabase
@@ -66,6 +68,16 @@ export default function Dashboard() {
           .map((p: any) => p.players)
           .filter((p) => p !== null);
         setPlayers(flattenedPlayers);
+
+        if (currentUserId) {
+          const { data: currentPlayerData } = await supabase
+            .from('players')
+            .select('id')
+            .eq('user_id', currentUserId)
+            .maybeSingle();
+
+          setCurrentPlayerId(currentPlayerData?.id || null);
+        }
 
         // Fetch matches in this championship
         const { data: matchesData, error: matchesError } = await supabase
@@ -143,6 +155,9 @@ export default function Dashboard() {
       minute: '2-digit',
     });
   };
+
+  const isUserMatch = (match: any) =>
+    Boolean(currentPlayerId && (match.home_player_id === currentPlayerId || match.away_player_id === currentPlayerId));
 
   const playedCount = matches.filter((m) => m.status === 'played').length;
   const totalCount = matches.length;
@@ -316,36 +331,41 @@ export default function Dashboard() {
 
           {pendingMatches.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', flex: 1 }}>
-              {pendingMatches.map((match) => (
-                <div key={match.id} style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '0.5rem', 
-                  padding: '0.85rem 1rem', 
-                  background: 'rgba(0,0,0,0.2)', 
-                  borderRadius: 'var(--border-radius-sm)',
-                  border: '1px solid var(--border-color)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span>ROUND {match.round}</span>
-                    <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Play size={10} /> Pending
-                    </span>
+              {pendingMatches.map((match) => {
+                const isMine = isUserMatch(match);
+
+                return (
+                  <div key={match.id} style={{ 
+                    display: 'flex', 
+                    flexDirection: 'column', 
+                    gap: '0.5rem', 
+                    padding: '0.85rem 1rem', 
+                    background: isMine ? 'rgba(0,255,102,0.08)' : 'rgba(0,0,0,0.2)', 
+                    borderRadius: 'var(--border-radius-sm)',
+                    border: isMine ? '1px solid rgba(0,255,102,0.35)' : '1px solid var(--border-color)',
+                    boxShadow: isMine ? '0 0 18px rgba(0,255,102,0.08)' : 'none'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      <span>{isMine ? 'YOUR GAME' : `ROUND ${match.round}`}</span>
+                      <span style={{ color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Play size={10} /> Pending
+                      </span>
+                    </div>
+                    <div style={{ color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 700 }}>
+                      {formatMatchDate(match.scheduled_at)}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600 }}>
+                      <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: match.home_player_id === currentPlayerId ? 'var(--primary)' : 'var(--text-primary)' }}>
+                        {getPlayerName(match.home_player_id)}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>VS</span>
+                      <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right', color: match.away_player_id === currentPlayerId ? 'var(--primary)' : 'var(--text-primary)' }}>
+                        {getPlayerName(match.away_player_id)}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ color: 'var(--primary)', fontSize: '0.82rem', fontWeight: 700 }}>
-                    {formatMatchDate(match.scheduled_at)}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: 600 }}>
-                    <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {getPlayerName(match.home_player_id)}
-                    </span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>VS</span>
-                    <span style={{ width: '40%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                      {getPlayerName(match.away_player_id)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '150px' }}>

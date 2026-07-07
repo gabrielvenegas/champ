@@ -23,6 +23,7 @@ const MIN_MATCH_COUNT = 1;
 const MAX_MATCH_COUNT = 200;
 const MATCH_START_HOUR = 18;
 const FIXTURES_PER_MATCH_DAY = 5;
+const MINUTES_BETWEEN_MATCHES = 30;
 
 const getDisplayLogin = (email?: string | null) => {
   if (!email) return 'No Login';
@@ -42,12 +43,20 @@ const addDays = (date: Date, days: number) => {
   return nextDate;
 };
 
+const addMinutes = (date: Date, minutes: number) => {
+  const nextDate = new Date(date);
+  nextDate.setMinutes(nextDate.getMinutes() + minutes);
+  return nextDate;
+};
+
 const formatScheduleDate = (date: Date) =>
-  date.toLocaleDateString([], {
+  date.toLocaleString([], {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 
 export default function AdminPage() {
@@ -204,7 +213,9 @@ export default function AdminPage() {
     const matchDayIndex = Math.floor(matchIndex / FIXTURES_PER_MATCH_DAY);
     const weekIndex = Math.floor(matchDayIndex / 2);
     const dayOffset = matchDayIndex % 2 === 0 ? 0 : 4;
-    return addDays(firstTuesday, weekIndex * 7 + dayOffset);
+    const matchDayDate = addDays(firstTuesday, weekIndex * 7 + dayOffset);
+    const slotIndex = matchIndex % FIXTURES_PER_MATCH_DAY;
+    return addMinutes(matchDayDate, slotIndex * MINUTES_BETWEEN_MATCHES);
   };
 
   const getSeasonRound = (matchIndex: number) =>
@@ -672,7 +683,7 @@ export default function AdminPage() {
                       Generated Match Dates
                     </label>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Every player faces every other player each week: 5 games on Tuesday and 5 on Saturday, starting {formatScheduleDate(firstTuesday)} at {String(MATCH_START_HOUR).padStart(2, '0')}:00.
+                      Every player faces every other player each week: 5 games on Tuesday and 5 on Saturday, starting {formatScheduleDate(firstTuesday)} with {MINUTES_BETWEEN_MATCHES}-minute spacing.
                     </span>
                     <div style={{
                       display: 'flex',

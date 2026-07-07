@@ -48,3 +48,29 @@ export function generateRoundRobin(playerIds: string[]): ScheduledMatch[] {
   // Sort matches by round
   return matches.sort((a, b) => a.round - b.round);
 }
+
+/**
+ * Generates a continuous fixture list by repeating the round-robin rotation.
+ * Each emitted match receives a unique matchday number in `round`.
+ */
+export function generateContinuousRoundRobin(
+  playerIds: string[],
+  matchCount: number
+): ScheduledMatch[] {
+  if (matchCount <= 0) return [];
+
+  const baseSchedule = generateRoundRobin(playerIds);
+  if (baseSchedule.length === 0) return [];
+
+  return Array.from({ length: matchCount }, (_, index) => {
+    const baseMatch = baseSchedule[index % baseSchedule.length];
+    const cycle = Math.floor(index / baseSchedule.length);
+    const shouldFlipHomeAway = cycle % 2 === 1;
+
+    return {
+      round: index + 1,
+      homePlayerId: shouldFlipHomeAway ? baseMatch.awayPlayerId : baseMatch.homePlayerId,
+      awayPlayerId: shouldFlipHomeAway ? baseMatch.homePlayerId : baseMatch.awayPlayerId,
+    };
+  });
+}

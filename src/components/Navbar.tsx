@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { usePWA } from '@/components/PWAProvider';
 import { 
@@ -13,15 +14,17 @@ import {
   Settings, 
   LogOut, 
   Download, 
-  WifiOff 
+  WifiOff,
+  X
 } from 'lucide-react';
 
 export default function Navbar() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { isInstallable, installApp, isOffline } = usePWA();
+  const { isInstallable, installApp, isOffline, isIosInstallable, isStandalone } = usePWA();
   const supabase = createClient();
 
   useEffect(() => {
@@ -54,6 +57,15 @@ export default function Navbar() {
     await supabase.auth.signOut();
     router.push('/');
     router.refresh();
+  };
+
+  const handleInstallClick = async () => {
+    if (isInstallable) {
+      await installApp();
+      return;
+    }
+
+    setShowInstallHelp(true);
   };
 
   // If no user is logged in, hide navigation links
@@ -118,15 +130,15 @@ export default function Navbar() {
             </div>
           )}
 
-          {isInstallable && (
+          {!isStandalone && (isInstallable || isIosInstallable) && (
             <button 
-              onClick={installApp} 
+              onClick={handleInstallClick} 
               className="btn btn-accent"
               style={{ padding: '0.5rem 1rem', fontSize: '0.9rem' }}
-              title="Install App"
+              title="Add to Home Screen"
             >
               <Download size={16} />
-              <span className="nav-text">Install</span>
+              <span className="nav-text">Add to Home Screen</span>
             </button>
           )}
 
@@ -145,6 +157,44 @@ export default function Navbar() {
           </div>
         </div>
       </div>
+
+      {showInstallHelp && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 200,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}>
+          <div className="card glass" style={{ width: '100%', maxWidth: '420px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem' }}>Add to Home Screen</h3>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: '0.4rem', borderRadius: '50%' }}
+                onClick={() => setShowInstallHelp(false)}
+                title="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <p style={{ fontSize: '0.95rem' }}>
+              On iPhone, tap Share in Safari, then choose Add to Home Screen.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setShowInstallHelp(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
       
       <style jsx global>{`
         @media (max-width: 640px) {

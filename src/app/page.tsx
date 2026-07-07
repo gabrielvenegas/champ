@@ -3,15 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Trophy, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { Trophy, Lock, User, AlertCircle } from 'lucide-react';
+
+const PLAYER_LOGIN_DOMAIN = 'champ-lovat.vercel.app';
+
+const getAuthEmail = (login: string) => {
+  const normalizedLogin = login.trim().toLowerCase();
+  return normalizedLogin.includes('@')
+    ? normalizedLogin
+    : `${normalizedLogin}@${PLAYER_LOGIN_DOMAIN}`;
+};
 
 export default function LoginPage() {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   
   const router = useRouter();
@@ -30,41 +36,20 @@ export default function LoginPage() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSuccess(null);
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        // Sign up
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              display_name: displayName,
-            },
-          },
-        });
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: getAuthEmail(login),
+        password,
+      });
 
-        if (signUpError) throw signUpError;
-        
-        // Supabase sends a verification email by default, notify user
-        setSuccess('Check your email to confirm registration! After verifying, you can sign in.');
-        setIsSignUp(false);
-      } else {
-        // Sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (signInError) throw signInError;
-        
-        router.push('/dashboard');
-        router.refresh();
-      }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication.');
+      if (signInError) throw signInError;
+      
+      router.push('/dashboard');
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during authentication.');
     } finally {
       setLoading(false);
     }
@@ -102,33 +87,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Tab Selector */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          background: 'rgba(0, 0, 0, 0.3)', 
-          padding: '0.25rem', 
-          borderRadius: 'var(--border-radius-sm)',
-          marginBottom: '1.5rem'
-        }}>
-          <button 
-            type="button"
-            onClick={() => { setIsSignUp(false); setError(null); setSuccess(null); }}
-            className={`btn ${!isSignUp ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem', borderRadius: 'calc(var(--border-radius-sm) - 2px)', fontSize: '0.9rem', boxShadow: !isSignUp ? 'var(--glow-shadow)' : 'none' }}
-          >
-            Sign In
-          </button>
-          <button 
-            type="button"
-            onClick={() => { setIsSignUp(true); setError(null); setSuccess(null); }}
-            className={`btn ${isSignUp ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.5rem', borderRadius: 'calc(var(--border-radius-sm) - 2px)', fontSize: '0.9rem', boxShadow: isSignUp ? 'var(--glow-shadow)' : 'none' }}
-          >
-            Sign Up
-          </button>
-        </div>
-
         {/* Alerts */}
         {error && (
           <div className="badge badge-pending" style={{ 
@@ -150,53 +108,18 @@ export default function LoginPage() {
           </div>
         )}
 
-        {success && (
-          <div className="badge badge-success" style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            width: '100%', 
-            borderRadius: 'var(--border-radius-sm)',
-            padding: '0.75rem',
-            marginBottom: '1.25rem',
-            textTransform: 'none',
-            fontSize: '0.85rem'
-          }}>
-            <CheckCircle size={16} style={{ flexShrink: 0 }} />
-            <span>{success}</span>
-          </div>
-        )}
-
         {/* Auth Form */}
         <form onSubmit={handleAuth}>
-          {isSignUp && (
-            <div className="form-group">
-              <label className="form-label">Display Name</label>
-              <div style={{ position: 'relative' }}>
-                <User size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. Gabriel"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="form-input"
-                  style={{ width: '100%', paddingLeft: '2.5rem' }}
-                />
-              </div>
-            </div>
-          )}
-
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label">Login</label>
             <div style={{ position: 'relative' }}>
-              <Mail size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
+              <User size={16} color="var(--text-secondary)" style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)' }} />
               <input 
-                type="email" 
+                type="text" 
                 required
-                placeholder="your.email@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your login"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
                 className="form-input"
                 style={{ width: '100%', paddingLeft: '2.5rem' }}
               />
@@ -225,7 +148,7 @@ export default function LoginPage() {
             className="btn btn-primary"
             style={{ width: '100%', padding: '0.85rem' }}
           >
-            {loading ? 'Processing...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading ? 'Processing...' : 'Sign In'}
           </button>
         </form>
 

@@ -51,6 +51,7 @@ create table public.matches (
   round integer not null,
   home_player_id uuid references public.players(id) on delete cascade not null,
   away_player_id uuid references public.players(id) on delete cascade not null,
+  scheduled_at timestamp with time zone,
   home_score integer,
   away_score integer,
   status text default 'pending' check (status in ('pending', 'played')),

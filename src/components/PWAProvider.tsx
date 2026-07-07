@@ -2,16 +2,49 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
 interface PWAContextType {
   isInstallable: boolean;
   installApp: () => Promise<void>;
   isOffline: boolean;
+  isIosInstallable: boolean;
+  isStandalone: boolean;
 }
+
+const getInitialOfflineState = () =>
+  typeof navigator !== 'undefined' ? !navigator.onLine : false;
+
+const getInitialStandaloneState = () => {
+  if (typeof window === 'undefined') return false;
+
+  const navigatorWithStandalone = window.navigator as NavigatorWithStandalone;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    navigatorWithStandalone.standalone === true
+  );
+};
+
+const getInitialIosInstallableState = () => {
+  if (typeof window === 'undefined') return false;
+
+  const isIos = /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+  return isIos && !getInitialStandaloneState();
+};
 
 const PWAContext = createContext<PWAContextType>({
   isInstallable: false,
   installApp: async () => {},
   isOffline: false,
+  isIosInstallable: false,
+  isStandalone: false,
 });
 
 export const usePWA = () => useContext(PWAContext);
@@ -21,9 +54,11 @@ export default function PWAProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOffline, setIsOffline] = useState(getInitialOfflineState);
+  const [isIosInstallable] = useState(getInitialIosInstallableState);
+  const [isStandalone] = useState(getInitialStandaloneState);
 
   useEffect(() => {
     // Register Service Worker
@@ -47,14 +82,13 @@ export default function PWAProvider({
     const handleOffline = () => setIsOffline(true);
 
     if (typeof window !== 'undefined') {
-      setIsOffline(!navigator.onLine);
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
 
       // Intercept PWA install prompt
       const handleBeforeInstallPrompt = (e: Event) => {
         e.preventDefault();
-        setDeferredPrompt(e);
+        setDeferredPrompt(e as BeforeInstallPromptEvent);
         setIsInstallable(true);
       };
 
@@ -81,7 +115,7 @@ export default function PWAProvider({
   };
 
   return (
-    <PWAContext.Provider value={{ isInstallable, installApp, isOffline }}>
+    <PWAContext.Provider value={{ isInstallable, installApp, isOffline, isIosInstallable, isStandalone }}>
       {children}
     </PWAContext.Provider>
   );

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { generateRoundRobin } from '@/lib/utils/scheduler';
+import { generateContinuousRoundRobin } from '@/lib/utils/scheduler';
 import { 
   Trophy, 
   UserPlus, 
@@ -13,8 +13,22 @@ import {
   Trash2, 
   Check, 
   AlertCircle,
-  Activity
+  Activity,
+  Calendar
 } from 'lucide-react';
+
+const REQUIRED_TEAM_COUNT = 5;
+const DEFAULT_MATCH_COUNT = 35;
+const MIN_MATCH_COUNT = 1;
+const MAX_MATCH_COUNT = 200;
+
+const getMatchKey = (round: number, homePlayerId: string, awayPlayerId: string) =>
+  `${round}:${homePlayerId}:${awayPlayerId}`;
+
+const getDisplayLogin = (email?: string | null) => {
+  if (!email) return 'No Login';
+  return email.includes('@champ-lovat.vercel.app') ? email.split('@')[0] : email;
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -29,17 +43,20 @@ export default function AdminPage() {
   // Player state
   const [allPlayers, setAllPlayers] = useState<any[]>([]);
   const [newPlayerName, setNewPlayerName] = useState('');
-  const [newPlayerEmail, setNewPlayerEmail] = useState('');
+  const [newPlayerLogin, setNewPlayerLogin] = useState('');
   const [playerActionLoading, setPlayerActionLoading] = useState(false);
 
   // New Championship creation state
   const [newChampName, setNewChampName] = useState('');
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [matchCountInput, setMatchCountInput] = useState(String(DEFAULT_MATCH_COUNT));
+  const [matchDateInputs, setMatchDateInputs] = useState<Record<string, string>>({});
   const [champCreationLoading, setChampCreationLoading] = useState(false);
 
   // Feedback states
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdminAccess();
@@ -103,37 +120,32 @@ export default function AdminPage() {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+    setAccessMessage(null);
     setPlayerActionLoading(true);
 
     try {
-      const payload: any = { name: newPlayerName };
-      if (newPlayerEmail.trim()) {
-        payload.email = newPlayerEmail.trim().toLowerCase();
-        
-        // Check if user already exists in profiles
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', payload.email)
-          .maybeSingle();
-        
-        if (profileData) {
-          payload.user_id = profileData.id;
-        }
+      const response = await fetch('/api/admin/players', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newPlayerName,
+          login: newPlayerLogin,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error creating player login.');
       }
 
-      const { data, error } = await supabase
-        .from('players')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      setAllPlayers((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
-      setSuccessMsg(`Player "${newPlayerName}" successfully added!`);
+      setAllPlayers((prev) => [...prev, result.player].sort((a, b) => a.name.localeCompare(b.name)));
+      setSuccessMsg(`Player "${newPlayerName}" successfully added with login access.`);
+      setAccessMessage(result.accessMessage);
       setNewPlayerName('');
-      setNewPlayerEmail('');
+      setNewPlayerLogin('');
     } catch (err: any) {
       setErrorMsg(err.message || 'Error inserting player record.');
     } finally {
@@ -149,13 +161,52 @@ export default function AdminPage() {
     );
   };
 
+  const selectedMatchCount = Number.parseInt(matchCountInput, 10);
+  const hasValidMatchCount =
+    Number.isInteger(selectedMatchCount) &&
+    selectedMatchCount >= MIN_MATCH_COUNT &&
+    selectedMatchCount <= MAX_MATCH_COUNT;
+
+  const selectedMatches = useMemo(
+    () => hasValidMatchCount
+      ? generateContinuousRoundRobin(selectedPlayerIds, selectedMatchCount)
+      : [],
+    [hasValidMatchCount, selectedMatchCount, selectedPlayerIds]
+  );
+
+  const getPlayerName = (playerId: string) =>
+    allPlayers.find((player) => player.id === playerId)?.name || 'Unknown Player';
+
+  const handleMatchDateChange = (matchKey: string, value: string) => {
+    setMatchDateInputs((prev) => ({
+      ...prev,
+      [matchKey]: value,
+    }));
+  };
+
   const handleCreateChampionship = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+    setAccessMessage(null);
 
-    if (selectedPlayerIds.length < 2) {
-      setErrorMsg('You must select at least 2 players to start a tournament.');
+    if (selectedPlayerIds.length !== REQUIRED_TEAM_COUNT) {
+      setErrorMsg(`You must select exactly ${REQUIRED_TEAM_COUNT} players to start this season.`);
+      return;
+    }
+
+    if (!hasValidMatchCount) {
+      setErrorMsg(`Choose between ${MIN_MATCH_COUNT} and ${MAX_MATCH_COUNT} matches for the season.`);
+      return;
+    }
+
+    const missingDate = selectedMatches.some((match) => {
+      const key = getMatchKey(match.round, match.homePlayerId, match.awayPlayerId);
+      return !matchDateInputs[key] || Number.isNaN(new Date(matchDateInputs[key]).getTime());
+    });
+
+    if (missingDate) {
+      setErrorMsg('Define a date and time for every generated match before starting the season.');
       return;
     }
 
@@ -166,7 +217,7 @@ export default function AdminPage() {
       const { data: champData, error: champErr } = await supabase
         .from('championships')
         .insert({
-          name: newChampName,
+          name: newChampName.trim(),
           status: 'active',
         })
         .select()
@@ -186,15 +237,13 @@ export default function AdminPage() {
 
       if (linkErr) throw linkErr;
 
-      // 3. Generate fixtures using round-robin scheduler
-      const scheduledMatches = generateRoundRobin(selectedPlayerIds);
-      
-      // 4. Batch insert matches
-      const matchesPayload = scheduledMatches.map((match) => ({
+      // 3. Batch insert generated matches with their scheduled date/time
+      const matchesPayload = selectedMatches.map((match) => ({
         championship_id: champData.id,
         round: match.round,
         home_player_id: match.homePlayerId,
         away_player_id: match.awayPlayerId,
+        scheduled_at: new Date(matchDateInputs[getMatchKey(match.round, match.homePlayerId, match.awayPlayerId)]).toISOString(),
         status: 'pending',
       }));
 
@@ -207,6 +256,8 @@ export default function AdminPage() {
       setSuccessMsg(`Championship "${newChampName}" created successfully!`);
       setNewChampName('');
       setSelectedPlayerIds([]);
+      setMatchCountInput(String(DEFAULT_MATCH_COUNT));
+      setMatchDateInputs({});
       
       // Reload admin states
       await loadAdminData();
@@ -227,6 +278,7 @@ export default function AdminPage() {
 
     setErrorMsg(null);
     setSuccessMsg(null);
+    setAccessMessage(null);
 
     try {
       const { error } = await supabase
@@ -321,6 +373,33 @@ export default function AdminPage() {
         </div>
       )}
 
+      {accessMessage && (
+        <div className="card glass" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, color: '#fff' }}>WhatsApp access message</span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}
+              onClick={() => navigator.clipboard.writeText(accessMessage)}
+            >
+              Copy Message
+            </button>
+          </div>
+          <pre style={{
+            whiteSpace: 'pre-wrap',
+            color: 'var(--text-primary)',
+            fontSize: '0.9rem',
+            lineHeight: 1.5,
+            background: 'rgba(0,0,0,0.25)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--border-radius-sm)',
+            padding: '0.75rem',
+            margin: 0
+          }}>{accessMessage}</pre>
+        </div>
+      )}
+
       {/* Grid sections */}
       <div className="grid grid-cols-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', alignItems: 'start' }}>
         
@@ -348,16 +427,17 @@ export default function AdminPage() {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Email (Optional)</label>
+                <label className="form-label">Login</label>
                 <input 
-                  type="email" 
-                  placeholder="e.g. user@gmail.com"
-                  value={newPlayerEmail}
-                  onChange={(e) => setNewPlayerEmail(e.target.value)}
+                  type="text" 
+                  required
+                  placeholder="e.g. gabriel"
+                  value={newPlayerLogin}
+                  onChange={(e) => setNewPlayerLogin(e.target.value)}
                   className="form-input"
                 />
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Linking email auto-associates match permission if they sign up.
+                  No real email needed. Password defaults to champs123.
                 </span>
               </div>
 
@@ -394,7 +474,7 @@ export default function AdminPage() {
                     <div>
                       <div style={{ fontWeight: 600, color: '#fff' }}>{player.name}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {player.email ? player.email : 'Guest / No Email'}
+                        Login: {getDisplayLogin(player.email)}
                       </div>
                     </div>
                     
@@ -493,9 +573,25 @@ export default function AdminPage() {
                   />
                 </div>
 
+                <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                  <label className="form-label">Season Matches</label>
+                  <input
+                    type="number"
+                    required
+                    min={MIN_MATCH_COUNT}
+                    max={MAX_MATCH_COUNT}
+                    value={matchCountInput}
+                    onChange={(e) => setMatchCountInput(e.target.value)}
+                    className="form-input"
+                  />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Fixtures repeat continuously. Default is {DEFAULT_MATCH_COUNT} matches.
+                  </span>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label" style={{ marginBottom: '0.5rem' }}>
-                    Select Players ({selectedPlayerIds.length} Selected)
+                    Select Players ({selectedPlayerIds.length} / {REQUIRED_TEAM_COUNT} Selected)
                   </label>
                   
                   {allPlayers.length > 0 ? (
@@ -551,9 +647,72 @@ export default function AdminPage() {
                   )}
                 </div>
 
+                {selectedPlayerIds.length === REQUIRED_TEAM_COUNT && (
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Calendar size={14} />
+                      Match Dates
+                    </label>
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.75rem',
+                      maxHeight: '360px',
+                      overflowY: 'auto',
+                      border: '1px solid var(--border-color)',
+                      padding: '0.75rem',
+                      borderRadius: 'var(--border-radius-sm)',
+                      background: 'rgba(0,0,0,0.2)'
+                    }}>
+                      {selectedMatches.map((match, index) => {
+                        const matchKey = getMatchKey(match.round, match.homePlayerId, match.awayPlayerId);
+                        return (
+                          <div
+                            key={matchKey}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                              gap: '0.75rem',
+                              alignItems: 'center',
+                              padding: '0.75rem',
+                              borderRadius: '6px',
+                              border: '1px solid var(--border-color)',
+                              background: 'rgba(255,255,255,0.02)'
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
+                                Matchday {match.round} · Fixture {index + 1}
+                              </div>
+                              <div style={{
+                                marginTop: '0.2rem',
+                                fontWeight: 600,
+                                color: 'var(--text-primary)',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {getPlayerName(match.homePlayerId)} vs {getPlayerName(match.awayPlayerId)}
+                              </div>
+                            </div>
+                            <input
+                              type="datetime-local"
+                              required
+                              value={matchDateInputs[matchKey] || ''}
+                              onChange={(e) => handleMatchDateChange(matchKey, e.target.value)}
+                              className="form-input"
+                              style={{ width: '100%', padding: '0.55rem 0.65rem', fontSize: '0.85rem' }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <button 
                   type="submit"
-                  disabled={champCreationLoading || selectedPlayerIds.length < 2 || !newChampName.trim()}
+                  disabled={champCreationLoading || selectedPlayerIds.length !== REQUIRED_TEAM_COUNT || !hasValidMatchCount || !newChampName.trim()}
                   className="btn btn-primary"
                   style={{ width: '100%', marginTop: '1rem' }}
                 >

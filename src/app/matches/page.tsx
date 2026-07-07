@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Trophy, Calendar, Check, Edit2, X, Activity, CalendarPlus } from 'lucide-react';
+import { Trophy, Calendar, Check, Edit2, X, Activity, CalendarPlus, RotateCcw } from 'lucide-react';
 
 interface MatchWithSchedule {
   id: string;
@@ -31,10 +31,6 @@ export default function MatchesPage() {
   const [awayScoreInput, setAwayScoreInput] = useState<string>('');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const formatICSDate = (date: Date): string => {
-    return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  };
 
   const getMatchDate = (match: MatchWithSchedule) => {
     if (match.scheduled_at) {
@@ -255,6 +251,51 @@ export default function MatchesPage() {
     }
   };
 
+  const resetScore = async (matchId: string) => {
+    const confirm = window.confirm('Reset this match score and mark it as pending?');
+    if (!confirm) return;
+
+    setSavingId(matchId);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase
+        .from('matches')
+        .update({
+          home_score: null,
+          away_score: null,
+          status: 'pending',
+          played_at: null,
+        })
+        .eq('id', matchId);
+
+      if (error) throw error;
+
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === matchId
+            ? {
+                ...m,
+                home_score: null,
+                away_score: null,
+                status: 'pending',
+                played_at: null,
+              }
+            : m
+        )
+      );
+
+      setEditingMatchId(null);
+      setHomeScoreInput('');
+      setAwayScoreInput('');
+    } catch (err: any) {
+      console.error('Error resetting score:', err);
+      setErrorMsg(err.message || 'Error resetting score. Check permissions.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   // Filter matches for the selected round and filter status
   const filteredMatches = matches.filter((m) => {
     const roundMatch = m.round === activeRound;
@@ -297,40 +338,37 @@ export default function MatchesPage() {
   }
 
   return (
-    <div className="container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="container match-page animate-fade-in">
       
       {/* Header section */}
-      <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="match-page-header">
         <div>
-          <h1 style={{ fontSize: '2.2rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Calendar color="var(--primary)" size={32} />
+          <h1 className="match-page-title">
+            <Calendar color="var(--primary)" size={30} />
             Championship Fixtures
           </h1>
-          <p style={{ marginTop: '0.25rem' }}>
+          <p className="match-page-subtitle">
             Manage and view matches for <span style={{ color: '#fff', fontWeight: 600 }}>{activeChampionship.name}</span>
           </p>
         </div>
 
         {/* Status Filters */}
-        <div style={{ display: 'flex', background: 'rgba(0,0,0,0.3)', padding: '0.2rem', borderRadius: 'var(--border-radius-sm)', border: '1px solid var(--border-color)' }}>
+        <div className="match-filter-tabs">
           <button 
             onClick={() => setFilterStatus('all')}
-            className={`btn ${filterStatus === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem', borderRadius: 'calc(var(--border-radius-sm) - 4px)', border: 'none' }}
+            className={`btn match-filter-tab ${filterStatus === 'all' ? 'btn-primary' : 'btn-secondary'}`}
           >
             All
           </button>
           <button 
             onClick={() => setFilterStatus('pending')}
-            className={`btn ${filterStatus === 'pending' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem', borderRadius: 'calc(var(--border-radius-sm) - 4px)', border: 'none' }}
+            className={`btn match-filter-tab ${filterStatus === 'pending' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Pending
           </button>
           <button 
             onClick={() => setFilterStatus('played')}
-            className={`btn ${filterStatus === 'played' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '0.35rem 0.8rem', fontSize: '0.8rem', borderRadius: 'calc(var(--border-radius-sm) - 4px)', border: 'none' }}
+            className={`btn match-filter-tab ${filterStatus === 'played' ? 'btn-primary' : 'btn-secondary'}`}
           >
             Played
           </button>
@@ -339,24 +377,13 @@ export default function MatchesPage() {
 
       {/* Rounds Navigation Bar */}
       {rounds.length > 0 && (
-        <div style={{ 
-          display: 'flex', 
-          gap: '0.5rem', 
-          overflowX: 'auto', 
-          paddingBottom: '0.5rem', 
-          borderBottom: '1px solid var(--border-color)',
-          scrollbarWidth: 'thin'
-        }}>
+        <div className="round-tabs">
           {rounds.map((round) => (
             <button
               key={round}
               onClick={() => { setActiveRound(round); cancelEditing(); }}
-              className={`btn ${activeRound === round ? 'btn-accent' : 'btn-secondary'}`}
-              style={{ 
-                padding: '0.5rem 1.25rem', 
-                fontSize: '0.85rem', 
-                borderRadius: '9999px',
-                flexShrink: 0,
+              className={`btn round-tab ${activeRound === round ? 'btn-accent' : 'btn-secondary'}`}
+              style={{
                 border: activeRound === round ? 'none' : '1px solid var(--border-color)',
                 boxShadow: activeRound === round ? 'var(--purple-shadow)' : 'none'
               }}
@@ -387,7 +414,7 @@ export default function MatchesPage() {
 
       {/* Matches List Grid */}
       {filteredMatches.length > 0 ? (
-        <div className="grid grid-cols-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+        <div className="grid grid-cols-2 match-grid">
           {filteredMatches.map((match) => {
             const isEditing = editingMatchId === match.id;
             const canEdit = isEditable(match);
@@ -397,20 +424,17 @@ export default function MatchesPage() {
             return (
               <div 
                 key={match.id} 
-                className="card glass animate-fade-in"
+                className="card glass match-card animate-fade-in"
                 style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '1.25rem', 
                   border: isEditing ? '1px solid var(--primary)' : '1px solid var(--border-color)',
                   boxShadow: isEditing ? 'var(--glow-shadow)' : 'none'
                 }}
               >
                 {/* Match Card Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '0.5rem', position: 'relative' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>ROUND {match.round}</span>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--primary)' }}>{formatMatchDate(match)}</span>
+                <div className="match-card-header">
+                  <div className="match-meta">
+                    <span className="match-round-label">ROUND {match.round}</span>
+                    <span className="match-date-label">{formatMatchDate(match)}</span>
                   </div>
                   
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -430,33 +454,26 @@ export default function MatchesPage() {
                 </div>
 
                 {/* Match Matchup Component */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.25rem 0' }}>
+                  <div className="match-body">
                   
                   {/* Home Player */}
-                  <div style={{ width: '40%', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    <span style={{ 
-                      fontWeight: 700, 
-                      fontSize: '1rem', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis', 
-                      whiteSpace: 'nowrap',
-                      color: isHomeWinner ? 'var(--primary)' : 'var(--text-primary)'
-                    }}>
+                  <div className="match-player">
+                    <span className="match-player-name" style={{ color: isHomeWinner ? 'var(--primary)' : 'var(--text-primary)' }}>
                       {getPlayerName(match.home_player_id)}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Home</span>
+                    <span className="match-player-role">Home</span>
                   </div>
 
                   {/* Score display or Editor */}
                   {isEditing ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '20%', justifyContent: 'center' }}>
+                    <div className="match-score-editor">
                       <input 
                         type="number"
                         min="0"
                         value={homeScoreInput}
                         onChange={(e) => setHomeScoreInput(e.target.value)}
                         className="form-input"
-                        style={{ width: '45px', padding: '0.35rem', textAlign: 'center', fontFamily: 'monospace', fontSize: '1.1rem' }}
+                        style={{ width: '46px', padding: '0.35rem', textAlign: 'center', fontSize: '1rem' }}
                       />
                       <span style={{ color: 'var(--text-secondary)' }}>-</span>
                       <input 
@@ -465,33 +482,17 @@ export default function MatchesPage() {
                         value={awayScoreInput}
                         onChange={(e) => setAwayScoreInput(e.target.value)}
                         className="form-input"
-                        style={{ width: '45px', padding: '0.35rem', textAlign: 'center', fontFamily: 'monospace', fontSize: '1.1rem' }}
+                        style={{ width: '46px', padding: '0.35rem', textAlign: 'center', fontSize: '1rem' }}
                       />
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20%' }}>
+                    <div className="match-score-wrap">
                       {match.status === 'played' ? (
-                        <div style={{ 
-                          fontSize: '1.4rem', 
-                          fontWeight: 800, 
-                          letterSpacing: '0.1em', 
-                          background: 'rgba(255, 255, 255, 0.04)', 
-                          padding: '0.25rem 0.75rem', 
-                          borderRadius: '6px',
-                          color: '#fff',
-                          fontFamily: 'monospace'
-                        }}>
+                        <div className="match-score">
                           {match.home_score} - {match.away_score}
                         </div>
                       ) : (
-                        <div style={{ 
-                          fontSize: '0.85rem', 
-                          fontWeight: 600, 
-                          color: 'var(--text-muted)',
-                          border: '1px dashed var(--border-color)',
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '6px'
-                        }}>
+                        <div className="match-vs">
                           VS
                         </div>
                       )}
@@ -499,25 +500,18 @@ export default function MatchesPage() {
                   )}
 
                   {/* Away Player */}
-                  <div style={{ width: '40%', display: 'flex', flexDirection: 'column', gap: '0.25rem', alignItems: 'flex-end', textAlign: 'right' }}>
-                    <span style={{ 
-                      fontWeight: 700, 
-                      fontSize: '1rem', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis', 
-                      whiteSpace: 'nowrap',
-                      color: isAwayWinner ? 'var(--primary)' : 'var(--text-primary)'
-                    }}>
+                  <div className="match-player match-player-away">
+                    <span className="match-player-name" style={{ color: isAwayWinner ? 'var(--primary)' : 'var(--text-primary)' }}>
                       {getPlayerName(match.away_player_id)}
                     </span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Away</span>
+                    <span className="match-player-role">Away</span>
                   </div>
 
                 </div>
 
                 {/* Match Card Footer Buttons */}
                 {canEdit && (
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '0.75rem' }}>
+                  <div className="match-actions">
                     {isEditing ? (
                       <>
                         <button 
@@ -528,6 +522,16 @@ export default function MatchesPage() {
                         >
                           <X size={14} /> Cancel
                         </button>
+                        {match.status === 'played' && (
+                          <button
+                            onClick={() => resetScore(match.id)}
+                            className="btn btn-secondary"
+                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem', borderColor: 'rgba(239,68,68,0.35)', color: '#f87171' }}
+                            disabled={savingId === match.id}
+                          >
+                            <RotateCcw size={14} /> Reset
+                          </button>
+                        )}
                         <button 
                           onClick={() => saveScore(match.id)} 
                           className="btn btn-primary" 
